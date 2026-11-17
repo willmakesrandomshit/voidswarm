@@ -22,6 +22,14 @@ Open `index.html` in any browser. Desktop app: `npm install` then `npm start`.
 ## Controls
 WASD / arrows / gamepad: move · Space: dash · weapons fire automatically · P/Esc: pause · F11: fullscreen
 
+## What's new in v6 (graphics, audio, polish)
+- **Shaded enemy sprites** with eyes, armor and per-type details, instead of flat shapes.
+- **Selective bloom** (halos around bullets, particles, gems and enemies), parallax stars and nebulae, and faint floor runes that change with the palette as the run goes on.
+- **Better effects**: hit sparks, popping damage numbers, a player engine trail, a level-up flash, and fades between screens.
+- **Off-screen arrows** point to bosses, elites, treasure goblins and chests.
+- **Richer music**: a drum kit, bass and pads that speed up over a run and push harder during bosses, plus more varied sound effects.
+- **Graphics setting** (Settings, key 5): HIGH or LOW. Phones default to LOW; turn HIGH on if yours runs it smoothly.
+
 ## What's new in v5 (for people who beat everything)
 - **Five new enemies with telegraphed attacks**: Chargers (wind up, then dash), Snipers (laser telegraph), Healers, Warpers (teleport) and Swarmling packs.
 - **Four boss patterns**: Hive Queen (spawns swarms), Laser Warden (rotating beams), Warp Stalker (teleports and bursts) and The Crusher (charges and shockwaves). They rotate each boss wave.
