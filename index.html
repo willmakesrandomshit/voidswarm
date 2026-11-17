@@ -1,10 +1,14 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><title>VOIDSWARM</title>
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-capable" content="yes">
 <style>
 html,body{margin:0;height:100%;background:#05050c;overflow:hidden}
 body{display:flex;align-items:center;justify-content:center}
-canvas{background:#0a0a18}
+canvas{background:#0a0a18;touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent}
+html,body{overscroll-behavior:none;touch-action:none}
+#rot{display:none}
+@media (orientation:portrait) and (pointer:coarse){#rot{display:flex;position:fixed;inset:0;z-index:9;background:#05050c;color:#fff;align-items:center;justify-content:center;text-align:center;font:600 22px system-ui,sans-serif;padding:24px}}
 </style>
 <!-- For AdSense H5 Games Ads (web build only), uncomment and use your own id, then set Ads.config.provider='adsense' in ads.js:
 <script async data-adbreak-test="on" src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-YOUR_ID"></script>
@@ -12,6 +16,7 @@ canvas{background:#0a0a18}
 -->
 </head><body>
 <canvas id="c" width="1280" height="720"></canvas>
+<div id="rot">Rotate your phone sideways to play VOIDSWARM</div>
 <script src="ads.js"></script>
 <script src="game.js"></script>
 </body></html>

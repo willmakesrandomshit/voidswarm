@@ -305,8 +305,56 @@ addEventListener('keydown', e => {
 });
 addEventListener('keyup', e => keys[e.code] = 0);
 function toCanvas(e) { const r = cv.getBoundingClientRect(); return { x: (e.clientX - r.left) * W / r.width, y: (e.clientY - r.top) * H / r.height }; }
+
+// ---------- touch controls (floating joystick + dash + pause) ----------
+const touch = { on: typeof matchMedia !== 'undefined' && matchMedia('(pointer: coarse)').matches, id: null, x: 0, y: 0, ox: 0, oy: 0 };
+let touchBlockUntil = 0; // swallow the synthetic click that follows a touch control action
+const TB = { dash: { x: W - 120, y: H - 120, r: 72 }, pause: { x: W - 56, y: H - 262, r: 34 }, JR: 90 };
+const inCirc = (b, p) => Math.hypot(p.x - b.x, p.y - b.y) <= b.r + 14;
+function touchStop() { touch.id = null; touch.x = touch.y = 0; }
+cv.addEventListener('pointerdown', e => {
+  if (e.pointerType !== 'touch') return;
+  touch.on = true; e.preventDefault();
+  if (state !== 'play') return;
+  const p = toCanvas(e);
+  if (inCirc(TB.dash, p)) { tryDash(); touchBlockUntil = performance.now() + 600; return; }
+  if (inCirc(TB.pause, p)) { state = 'paused'; touchStop(); touchBlockUntil = performance.now() + 600; return; }
+  if (touch.id === null && p.x < W * 0.6) {
+    touch.id = e.pointerId; touch.ox = p.x; touch.oy = p.y; touch.x = touch.y = 0;
+    try { cv.setPointerCapture(e.pointerId); } catch (_) { }
+  }
+}, { passive: false });
+cv.addEventListener('pointermove', e => {
+  if (e.pointerType !== 'touch' || e.pointerId !== touch.id) return;
+  const p = toCanvas(e); let dx = p.x - touch.ox, dy = p.y - touch.oy; const d = Math.hypot(dx, dy);
+  if (d > TB.JR) { touch.ox += dx / d * (d - TB.JR); touch.oy += dy / d * (d - TB.JR); dx = p.x - touch.ox; dy = p.y - touch.oy; } // base follows the thumb
+  const m = Math.hypot(dx, dy);
+  if (m < TB.JR * .12) { touch.x = touch.y = 0; } else { const k = Math.min(1, m / TB.JR) / m; touch.x = dx * k; touch.y = dy * k; }
+});
+const touchEnd = e => { if (e.pointerType === 'touch' && e.pointerId === touch.id) { touchStop(); touchBlockUntil = performance.now() + 350; } };
+cv.addEventListener('pointerup', touchEnd); cv.addEventListener('pointercancel', touchEnd);
+cv.addEventListener('contextmenu', e => e.preventDefault());
+function drawTouch() {
+  if (!touch.on || state !== 'play') return;
+  g.save(); g.lineWidth = 4; g.textAlign = 'center';
+  const jx = touch.id !== null ? touch.ox : 150, jy = touch.id !== null ? touch.oy : H - 150;
+  g.fillStyle = 'rgba(255,255,255,' + (touch.id !== null ? .1 : .05) + ')'; g.strokeStyle = 'rgba(255,255,255,' + (touch.id !== null ? .4 : .18) + ')';
+  g.beginPath(); g.arc(jx, jy, TB.JR, 0, 7); g.fill(); g.stroke();
+  g.fillStyle = 'rgba(94,234,212,' + (touch.id !== null ? .55 : .2) + ')';
+  g.beginPath(); g.arc(jx + touch.x * TB.JR, jy + touch.y * TB.JR, 38, 0, 7); g.fill();
+  const b = TB.dash, ready = G.dashT <= 0, cd = ready ? 1 : 1 - Math.min(1, G.dashT / G.w.dashCd);
+  g.fillStyle = ready ? 'rgba(94,234,212,.28)' : 'rgba(255,255,255,.1)'; g.strokeStyle = ready ? 'rgba(94,234,212,.9)' : 'rgba(255,255,255,.3)';
+  g.beginPath(); g.arc(b.x, b.y, b.r, 0, 7); g.fill(); g.stroke();
+  if (!ready) { g.strokeStyle = 'rgba(94,234,212,.9)'; g.beginPath(); g.arc(b.x, b.y, b.r + 8, -Math.PI / 2, -Math.PI / 2 + cd * Math.PI * 2); g.stroke(); }
+  g.fillStyle = '#fff'; g.font = 'bold 26px sans-serif'; g.fillText('DASH', b.x, b.y + 9);
+  const q = TB.pause; g.fillStyle = 'rgba(255,255,255,.12)'; g.strokeStyle = 'rgba(255,255,255,.4)';
+  g.beginPath(); g.arc(q.x, q.y, q.r, 0, 7); g.fill(); g.stroke();
+  g.fillStyle = 'rgba(255,255,255,.85)'; g.fillRect(q.x - 11, q.y - 13, 8, 26); g.fillRect(q.x + 3, q.y - 13, 8, 26);
+  g.restore();
+}
 cv.addEventListener('mousemove', e => { mouse = toCanvas(e); });
 cv.addEventListener('click', e => {
+  if (performance.now() < touchBlockUntil) return;
   mouse = toCanvas(e);
   if (state === 'menu') {
     if (inR(R.start)) tryStart(); else if (inR(R.shop)) state = 'shop'; else if (inR(R.achb)) state = 'ach'; else if (inR(R.sett)) state = 'settings';
@@ -423,8 +471,8 @@ function update(dt) {
   G.achT -= dt; if (G.achT <= 0) { G.achT = 1; checkAch(); }
   // movement
   const gp = pad();
-  let ix = (keys.KeyD || keys.ArrowRight ? 1 : 0) - (keys.KeyA || keys.ArrowLeft ? 1 : 0) + gp.x;
-  let iy = (keys.KeyS || keys.ArrowDown ? 1 : 0) - (keys.KeyW || keys.ArrowUp ? 1 : 0) + gp.y;
+  let ix = (keys.KeyD || keys.ArrowRight ? 1 : 0) - (keys.KeyA || keys.ArrowLeft ? 1 : 0) + gp.x + touch.x;
+  let iy = (keys.KeyS || keys.ArrowDown ? 1 : 0) - (keys.KeyW || keys.ArrowUp ? 1 : 0) + gp.y + touch.y;
   const m = Math.hypot(ix, iy); if (m > 1) { ix /= m; iy /= m; }
   if (m > .1) p.face = Math.atan2(iy, ix);
   if (G.dash > 0) { p.x += Math.cos(p.face) * 850 * dt; p.y += Math.sin(p.face) * 850 * dt; }
@@ -717,7 +765,7 @@ function drawHUD() {
   text(Math.ceil(Math.max(0, p.hp)) + ' / ' + Math.round(p.max), 150, 53, 14);
   g.fillStyle = '#000a'; g.fillRect(20, 64, 260, 8);
   g.fillStyle = G.dashT <= 0 ? '#5eead4' : '#2b6f68'; g.fillRect(20, 64, 260 * (G.dashT <= 0 ? 1 : 1 - G.dashT / G.w.dashCd), 8);
-  text('SPACE: dash' + (G.nm ? '   ☠ NIGHTMARE' : '') + (G.daily ? '   ★ DAILY' : ''), 20, 90, 12, G.nm ? '#ff6b6b' : '#889', 'left', false);
+  text((touch.on ? 'DASH button: dodge' : 'SPACE: dash') + (G.nm ? '   ☠ NIGHTMARE' : '') + (G.daily ? '   ★ DAILY' : ''), 20, 90, 12, G.nm ? '#ff6b6b' : '#889', 'left', false);
   text(fmt(G.t), W / 2, 62, 34);
   if (!G.won && G.t < TUNE.titanTime) text('Void Titan in ' + fmt(TUNE.titanTime - G.t), W / 2, 84, 13, '#b14dff', 'center', false);
   text('Kills ' + G.kills, W - 24, 56, 20, '#fff', 'right');
@@ -820,9 +868,9 @@ function render(ts) {
     drawBackdrop(ts);
     if (state === 'menu') renderMenu(ts); else if (state === 'shop') renderShop(); else if (state === 'ach') renderAch(); else renderSettings();
   } else {
-    drawWorld(); drawHUD();
+    drawWorld(); drawHUD(); drawTouch();
     if (state === 'levelup') drawLevelUp();
-    if (state === 'paused') { g.fillStyle = '#000b'; g.fillRect(0, 0, W, H); text('PAUSED', W / 2, 330, 64); text('Press P / Esc or click to resume', W / 2, 380, 22, '#ccd', 'center', false); button(R.quit, 'Quit run (Q)', '#ef476f'); }
+    if (state === 'paused') { g.fillStyle = '#000b'; g.fillRect(0, 0, W, H); text('PAUSED', W / 2, 330, 64); text('Press P / Esc, or click / tap to resume', W / 2, 380, 22, '#ccd', 'center', false); button(R.quit, 'Quit run (Q)', '#ef476f'); }
     if (state === 'ad') { g.fillStyle = '#000b'; g.fillRect(0, 0, W, H); text('Ad playing...', W / 2, H / 2, 40, '#ccd'); }
     if (state === 'win') {
       g.fillStyle = '#000d'; g.fillRect(0, 0, W, H);
