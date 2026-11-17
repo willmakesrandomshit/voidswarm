@@ -1349,32 +1349,6 @@ function drawHUD() {
     g.globalAlpha = Math.min(1, k * 1.4); title(G.intro.n, 340, 58, '#ffffff', G.intro.col && G.intro.col.length === 7 ? G.intro.col : '#ff4d6d'); text(G.intro.sub, W / 2, 378, 18, '#cbd', 'center', false); g.globalAlpha = 1;
   }
 }
-function drawHUD() {
-  const p = G.p;
-  g.fillStyle = 'rgba(0,0,10,.6)'; g.fillRect(0, 0, W, 20);
-  { const xf = Math.min(1, G.xp / G.need), xg = g.createLinearGradient(0, 0, W, 0); xg.addColorStop(0, '#4cc9f0'); xg.addColorStop(1, '#b14dff'); g.fillStyle = xg; g.fillRect(0, 0, W * xf, 20); g.fillStyle = 'rgba(255,255,255,.22)'; g.fillRect(0, 0, W * xf, 7); }
-  text('LV ' + G.lvl, W / 2, 16, 14, '#fff');
-  bar(20, 34, 270, 24, p.hp / p.max, p.hp / p.max > .3 ? '#ff6b8a' : '#ff2a2a', p.hp / p.max > .3 ? '#d6264f' : '#a80000');
-  text(Math.ceil(Math.max(0, p.hp)) + ' / ' + Math.round(p.max), 155, 52, 14);
-  bar(20, 64, 270, 9, G.dashT <= 0 ? 1 : 1 - G.dashT / G.w.dashCd, G.dashT <= 0 ? '#7ff5e1' : '#2b8f84', G.dashT <= 0 ? '#2bb8a6' : '#1d5c55');
-  text((touch.on ? 'DASH button: dodge' : 'SPACE: dash') + (G.nm ? '   ☠ NIGHTMARE' : '') + (G.daily ? '   ★ DAILY' : '') + (G.heat ? '   HEAT ' + G.heat : ''), 20, 92, 12, G.nm ? '#ff6b6b' : '#98a', 'left', false);
-  text(fmt(G.t), W / 2, 62, 34);
-  if (!G.won && G.t < TUNE.titanTime) text('Void Titan in ' + fmt(TUNE.titanTime - G.t), W / 2, 84, 13, '#b14dff', 'center', false);
-  text('Kills ' + G.kills, W - 24, 56, 20, '#fff', 'right');
-  text('Gold ' + Math.floor(G.gold), W - 24, 82, 18, '#ffd166', 'right');
-  text('Score ' + calcScore() + (G.curseMult > 1 ? '  (x' + G.curseMult.toFixed(2) + ')' : ''), W - 24, 104, 14, '#9ab', 'right', false);
-  if (G.combo >= 5) { text('x' + G.combo + ' COMBO', W - 24, 130, 26 + Math.min(14, G.combo / 8), G.combo >= 50 ? '#ff9f43' : '#fff', 'right'); const cw = 140 * Math.max(0, G.comboT / 2.5); g.fillStyle = '#ff9f43'; g.fillRect(W - 24 - cw, 138, cw, 4); }
-  const bs = G.en.find(e => (e.type === 'boss' || e.type === 'titan') && !e.dead);
-  if (bs) { bar(W / 2 - 220, 98, 440, 14, bs.hp / bs.max, bs.type === 'titan' ? '#c77dff' : '#ff6b8a', bs.type === 'titan' ? '#6b2bbd' : '#b1123a'); text(bs.type === 'titan' ? (bs.tier ? 'VOID TITAN  -  TIER ' + bs.tier : 'THE VOID TITAN') : (bs.name || '!! BOSS !!').toUpperCase(), W / 2, 94, 13, bs.type === 'titan' ? '#c77dff' : '#ff6b8a'); }
-  if (G.ev.kind === 'moon' || G.ev.kind === 'meteor' || G.ev.kind === 'zone') text({ moon: 'BLOOD MOON', meteor: 'METEOR STORM', zone: 'VOID CLOSING' }[G.ev.kind] + '  ' + Math.ceil(G.ev.dur - G.ev.t) + 's', W / 2, 134, 15, '#ff9f43');
-  if (G.banner) { g.globalAlpha = Math.min(1, G.banner.t * 2); text(G.banner.s, W / 2, 178, 36, G.banner.col); g.globalAlpha = 1; }
-  const wla = UPG.filter(u => G.lv[u.id]).map(u => u.n.split(' ')[0] + ' ' + G.lv[u.id]), wl = wla.slice(0, 11).join('  ·  ') + (wla.length > 11 ? '  ·  +' + (wla.length - 11) + ' more' : '');
-  if (wl) text(wl, 20, H - 14, 13, '#889', 'left', false);
-  if (G.relics.length) text('♦ ' + G.relics.map(id => RELIC_BY[id].n).join('  '), 20, H - 54, 13, '#c9b6ff', 'left', false);
-  const ev = EVO.filter(e => G.evo[e.id]).map(e => e.n).join('  ');
-  if (ev) text('★ ' + ev, 20, H - 34, 14, '#ffd166', 'left');
-  drawIndicators();
-}
 function drawLevelUp() {
   g.fillStyle = 'rgba(2,2,14,.78)'; g.fillRect(0, 0, W, H);
   title(G.relicOffer ? 'RELIC FOUND!' : 'LEVEL UP!', 150, 60, G.relicOffer ? '#e0b0ff' : '#ffe66d', G.relicOffer ? '#9b5cff' : '#ff9f43');

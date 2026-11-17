@@ -22,6 +22,13 @@ Open `index.html` in any browser. Desktop app: `npm install` then `npm start`.
 ## Controls
 WASD / arrows / gamepad: move · Space: dash · weapons fire automatically · P/Esc: pause · F11: fullscreen
 
+## What's new in v7 + v8 (the big one)
+- **Watch an AI play** (menu button or `W`): a spectator mode with three AI skill levels (Rookie, Veteran, Master). It dodges bullets, beams and meteors, collects loot, grabs chests, chases goblins, stays in the Void Closing ring and picks its own upgrades. Controls on screen: Speed x1/x2/x4 (`F`), Skill (`K`), Take over (`E`), Exit (`X`). Spectator runs never earn gold, records or achievements.
+- **Chest markers**: tall light beacons with RELIC / CHEST labels, edge arrows that show distance (`♦ 110m`) and what the target is, and a **minimap** (`M` to toggle) showing enemies, bosses, elites, goblins, chests and the shrinking zone.
+- **Better UI**: an icon tray of everything you own (with levels), a pause screen with full build stats and upgrade list, a How to Play screen (`I`), restyled popups, boss intro cinematics, scorch marks on the ground, and new Settings (minimap, damage numbers).
+- **29 upgrades** (was 16): new weapons (Combat Drones, Proximity Mines, Gravity Well, Ricochet Disc), new stats (Wider Reach, Overdrive, Fortune, Plating, Life Leech), status effects (Ignite, Chill) and Executioner, Finisher. **11 evolutions** (5 new). **12 permanent upgrades** (5 new, including free rerolls so you never need an ad).
+- **20 relics** (6 new) and **9 characters** (Engineer and Gravitonaut are new).
+
 ## What's new in v6 (graphics, audio, polish)
 - **Shaded enemy sprites** with eyes, armor and per-type details, instead of flat shapes.
 - **Selective bloom** (halos around bullets, particles, gems and enemies), parallax stars and nebulae, and faint floor runes that change with the palette as the run goes on.
