@@ -22,6 +22,16 @@ Open `index.html` in any browser. Desktop app: `npm install` then `npm start`.
 ## Controls
 WASD / arrows / gamepad: move · Space: dash · weapons fire automatically · P/Esc: pause · F11: fullscreen
 
+## What's new in v4
+- **14 relics**: run-defining passives (Chain Reaction, Aegis Charm, Storm Caller, Glass Cannon, Phoenix Feather...). You get a choice of three every 5th level, from boss chests, and sometimes from elite chests. Discovered relics are tracked in a codex.
+- **Elite affixes + Champions**: elites (and bosses after 5:00) roll an affix (Shielded, Swift, Splitter, Volatile). From 2:30 on, a few regular enemies become Champions with triple HP and bigger rewards.
+- **Random events**: Blood Moon (double enemies, double XP), Meteor Storm (dodge the red circles; meteors also hurt enemies) and Treasure Goblin (a fast thief carrying loot).
+- **Heat ladder (0-10)**: survive 5:00 at your top Heat to unlock the next. Each level makes enemies tougher and adds +15% gold; higher Heat adds more elites, champions and bigger hordes.
+- **3 new characters**: Relic Hunter (starts with a relic pick), Juggernaut (tank) and Voidwalker (dash burns enemies).
+- **10 new achievements**, mobile touch controls, and a three-column awards screen.
+
+Menu keys: `H` cycles Heat. Saves from older versions keep working.
+
 ## Tuning difficulty
 All difficulty constants live in the `TUNE` block at the top of `game.js`
 (`hpGrowth` controls how fast regular enemies scale: the late-game wall; `titanTime`, `titanHp` control the final boss).
