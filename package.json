@@ -1,0 +1,20 @@
+{
+  "name": "voidswarm",
+  "version": "1.0.0",
+  "description": "Arena survivor roguelite",
+  "main": "main.js",
+  "bin": { "voidswarm": "play.js" },
+  "scripts": {
+    "play": "node play.js",
+    "start": "electron .",
+    "dist": "electron-builder --win --dir"
+  },
+  "devDependencies": {
+    "electron": "^33.0.0",
+    "electron-builder": "^25.0.0"
+  },
+  "build": {
+    "appId": "com.example.voidswarm",
+    "files": ["index.html", "game.js", "ads.js", "main.js", "preload.js", "package.json"]
+  }
+}
