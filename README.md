@@ -2,7 +2,10 @@
 
 Arena survivor roguelite. Survive 15 minutes, slay the Void Titan, then keep going in endless/Nightmare mode.
 
-## Play in one command (needs Node.js 16+)
+## Play instantly in any browser (nothing to install)
+https://willmakesrandomshit.github.io/voidswarm/
+
+## Or run locally with one command (needs Node.js 16+)
 ```bash
 npx --yes github:willmakesrandomshit/voidswarm
 ```
