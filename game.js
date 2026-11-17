@@ -1565,8 +1565,8 @@ function drawPause() {
   button(R.quit, 'Quit run (Q)', '#ef476f');
 }
 const spect = () => !!(G && (G.ai || G.assisted));
-const AI_SKILLS = [{ n: 'Rookie', rt: .3, noise: .5, dash: .35, N: 12, T: .35 }, { n: 'Veteran', rt: .12, noise: .12, dash: .85, N: 20, T: .42 }, { n: 'Master', rt: .06, noise: .03, dash: 1, N: 32, T: .52 }];
-const AI_TUNE = { sMin: 1.1, gem: 3, contact: 2.4, soft: .5, dashAt: 75 };
+const AI_SKILLS = [{ n: 'Rookie', rt: .3, noise: .5, dash: .35, N: 12, S: 4, DT: .15 }, { n: 'Veteran', rt: .12, noise: .1, dash: .9, N: 20, S: 8, DT: .125 }, { n: 'Master', rt: .06, noise: .02, dash: 1, N: 28, S: 10, DT: .12 }];
+const AI_TUNE = { k: 3, loot: 1.3, dens: .8, gem: 2.5, dashRisk: 7, dashMargin: 6 };
 const AI_DANGER = { boss: 3, titan: 3, brute: 1.6, elite: 2, exploder: 2.5, shooter: 1.2, charger: 1.5, sniper: 1, healer: .6, warper: 1.2, swarmling: .35, bat: .6, runner: .9, goblin: 0, grunt: 1 };
 const AI_UPG = { dmg: 10, rate: 9, multi: 9, pierce: 6, blades: 8, nova: 8, light: 8, boom: 6, missile: 8, flame: 7, drone: 7, mine: 6, grav: 7, rico: 7, vit: 8, regen: 6, armor: 8, spd: 6, mag: 5, crit: 7, critd: 5, dashf: 5, area: 4, cdr: 6, luck: 3, leech: 6, burn: 5, chill: 4, exec: 5 };
 const AI_RELIC = { aegis: 9, phoenix: 8, storm: 8, chain: 8, frost: 8, berserk: 5, glass: 3, vampire: 7, thorns: 6, midas: 5, scholar: 7, wings: 7, overclock: 7, trail: 4, echo: 7, bounty: 5, magcore: 6, timewarp: 6, ovc: 7, lucky: 5 };
@@ -1587,67 +1587,100 @@ function aiControl(dt) {
   if (A.wantDash && G.dashT <= 0) { A.wantDash = false; return { x: A.dashDir.x, y: A.dashDir.y, dash: true }; }
   return { x: A.dir.x, y: A.dir.y, dash: false };
 }
+const AI_M = { ex: new Float32Array(260), ey: new Float32Array(260), es: new Float32Array(260), er: new Float32Array(260), ed: new Float32Array(260), sx: new Float32Array(260), sy: new Float32Array(260) };
 function aiPlan(sk) {
-  const p = G.p, A = G.aiS, spd = p.spd, T = sk.T, N = sk.N, en = [], bul = [], hpF = p.hp / p.max, safety = Math.max(AI_TUNE.sMin, Math.min(1.5, 1.5 - hpF));
-  for (const e of G.en) { if (e.dead) continue; const dx = e.x - p.x, dy = e.y - p.y; if (dx * dx + dy * dy < 560 * 560) en.push(e); }
-  for (const b of G.eb) { const dx = b.x - p.x, dy = b.y - p.y; if (dx * dx + dy * dy < 520 * 520) bul.push(b); }
+  const p = G.p, A = G.aiS, spd = p.spd, N = sk.N, S = sk.S, DT = sk.DT, H = S * DT, R0 = p.r + 3, M = AI_M, K = AI_TUNE.k;
+  const hpF = p.hp / p.max, hk = 1 + (1 - hpF) * 1.3, mdm = dmgMul();
+  // ---- enemies: nearest first, with a simple model of how each one will move ----
+  const nearArr = [];
+  for (const e of G.en) { if (e.dead) continue; const dx = e.x - p.x, dy = e.y - p.y, d2 = dx * dx + dy * dy; if (d2 < 640 * 640) nearArr.push([d2, e]); }
+  nearArr.sort((a, b) => a[0] - b[0]);
+  let n = 0;
+  for (let i = 0; i < nearArr.length && n < 200; i++) {
+    const e = nearArr[i][1], d = Math.sqrt(nearArr[i][0]); if (e.dmg <= 0) continue;
+    let sp = e.spd;
+    if (e.type === 'exploder' && e.fuse > 0) sp = 0; else if ((e.type === 'shooter' || e.type === 'sniper') && d < 400) sp = 0; else if (e.type === 'healer' && d < 340) sp = 0; else if (e.cs === 'wind') sp = 0; else if (e.chill > 0) sp *= .8;
+    M.ex[n] = e.x; M.ey[n] = e.y; M.es[n] = sp; M.er[n] = e.r + (e.type === 'exploder' ? 40 : 0) + (e.type === 'boss' || e.type === 'titan' ? 60 : 0); M.ed[n] = e.dmg * (e.type === 'exploder' ? 1.8 : 1); n++;
+  }
+  const bul = []; for (const b of G.eb) { const dx = b.x - p.x, dy = b.y - p.y; if (dx * dx + dy * dy < 560 * 560) bul.push(b); }
+  const lines = [];
+  for (const [, e] of nearArr) {
+    if (e.cs === 'wind' && e.cdir !== undefined) lines.push({ x: e.x, y: e.y, dx: Math.cos(e.cdir), dy: Math.sin(e.cdir), t: Math.max(0, e.ct) + .12, w: 40, len: 700, dm: e.dmg });
+    if (e.type === 'sniper' && e.tel > 0) lines.push({ x: e.x, y: e.y, dx: Math.cos(e.aim), dy: Math.sin(e.aim), t: e.tel, w: 30, len: 1100, dm: e.dmg });
+  }
+  // ---- target: chests, goblins, gem CLUSTERS (away from crowds), coins ----
   let tgt = null, tw = 0;
-  const consider = (x, y, v, label) => { const d = Math.hypot(x - p.x, y - p.y), val = v / (1 + d / 220); if (val > tw) { tw = val; tgt = { x, y, label }; } };
+  const consider = (x, y, v, label) => { const d = Math.hypot(x - p.x, y - p.y), val = v / (1 + d / 240); if (val > tw) { tw = val; tgt = { x, y, label }; } };
   for (const c of G.chest) consider(c.x, c.y, c.relic ? 14 : 8, 'Grabbing a chest');
-  for (const e of G.en) if (!e.dead && e.type === 'goblin') consider(e.x, e.y, 10, 'Chasing the goblin');
-  for (const gm of G.gem) if (Math.abs(gm.x - p.x) < 380 && Math.abs(gm.y - p.y) < 380) consider(gm.x, gm.y, AI_TUNE.gem, 'Collecting XP');
-  for (const c of G.coin) if (Math.abs(c.x - p.x) < 380 && Math.abs(c.y - p.y) < 380) consider(c.x, c.y, 1.6, 'Collecting gold');
+  for (const e of G.en) if (!e.dead && e.type === 'goblin') consider(e.x, e.y, 9, 'Chasing the goblin');
+  const gems = []; for (const gm of G.gem) { const dx = gm.x - p.x, dy = gm.y - p.y, d2 = dx * dx + dy * dy; if (d2 < 440 * 440) gems.push([d2, gm]); }
+  gems.sort((a, b) => a[0] - b[0]); if (gems.length > 36) gems.length = 36;
+  for (const [, gm] of gems) {
+    let c = 0; for (const [, o] of gems) if (Math.abs(o.x - gm.x) < 130 && Math.abs(o.y - gm.y) < 130) c++;
+    let thr = 0; for (let i = 0; i < Math.min(n, 70); i++) if (Math.abs(M.ex[i] - gm.x) < 110 && Math.abs(M.ey[i] - gm.y) < 110) thr++;
+    consider(gm.x, gm.y, Math.max(.5, 1.2 + .7 * c - .35 * thr) * AI_TUNE.gem, 'Collecting XP');
+  }
+  for (const c of G.coin) if (Math.abs(c.x - p.x) < 380 && Math.abs(c.y - p.y) < 380) consider(c.x, c.y, .9, 'Collecting gold');
   if (G.zone && Math.hypot(p.x - G.zone.x, p.y - G.zone.y) > G.zone.r * .7) { tgt = { x: G.zone.x, y: G.zone.y, label: 'Staying in the ring' }; tw = 30; }
   A.wander += (Math.random() - .5) * .6;
-  const TS = sk.T > .5 ? [.1, .2, .3, .4, .5, .6, .7, .8] : [.12, .24, .36, .48, .6], mdm = dmgMul();
-  let best = -1e9, bestA = A.ang, bestDanger = 0, stayBest = false, bestMove = -1e9, bestMoveA = A.ang;
-  for (let k = 0; k <= N; k++) {
-    const stay = k === N, a = stay ? A.ang : k / N * 6.2832, vx = stay ? 0 : Math.cos(a), vy = stay ? 0 : Math.sin(a);
-    const at = t => [p.x + vx * spd * t, p.y + vy * spd * t];
-    const [cx, cy] = at(T), [cx2, cy2] = at(T * 2);
-    let s2 = 0, danger = 0, cone = 0;
-    for (const e of en) {
-      const dm = e.dmg * (e.type === 'exploder' ? 1.8 : 1); if (dm <= 0) continue;
-      { const ex0 = e.x - p.x, ey0 = e.y - p.y, dd0 = Math.hypot(ex0, ey0); if (dd0 < 320 && dd0 > 1 && (ex0 * vx + ey0 * vy) / dd0 > .77) cone += dm / 7; }
-      const R = e.r + p.r + 16 + (e.type === 'exploder' ? 55 : 0) + (e.type === 'boss' || e.type === 'titan' ? 90 : 0);
-      for (const q of [[cx, cy, 1], [cx2, cy2, .6]]) {
-        const ang = Math.atan2(q[1] - e.y, q[0] - e.x), mv = (e.type === 'exploder' && e.fuse > 0 ? 0 : e.spd) * T * q[2], ex = e.x + Math.cos(ang) * mv, ey = e.y + Math.sin(ang) * mv, d = Math.hypot(ex - q[0], ey - q[1]);
-        if (d < R) { const c = AI_TUNE.contact * dm * safety * (1 + (R - d) / R); danger += c; s2 -= c; } else if (d < R + 110) { const c = AI_TUNE.soft * dm * safety * ((R + 110 - d) / 110) ** 2; s2 -= c; danger += c * .2; }
+  // ---- rollout: the whole swarm chases the route; we pay HP for every hit (max one per 0.5s, like the real game) ----
+  const simulate = (vx, vy, dash) => {
+    let px = p.x, py = p.y, cost = 0, invUntil = Math.max(0, p.inv); if (dash) invUntil = Math.max(invUntil, .3);
+    for (let i = 0; i < n; i++) { M.sx[i] = M.ex[i]; M.sy[i] = M.ey[i]; }
+    for (let st = 1; st <= S; st++) {
+      const t = st * DT;
+      if (dash) { const d0 = Math.min(DT, Math.max(0, .17 - (st - 1) * DT)), dd = 850 * d0 + spd * (DT - d0); px += vx * dd; py += vy * dd; } else { px += vx * spd * DT; py += vy * spd * DT; }
+      let hit = 0, soft = 0;
+      for (let i = 0; i < n; i++) {
+        const dx = px - M.sx[i], dy = py - M.sy[i], d = Math.sqrt(dx * dx + dy * dy) || 1, m = M.es[i] * DT;
+        if (d > m) { M.sx[i] += dx / d * m; M.sy[i] += dy / d * m; }
+        const d2 = Math.max(0, d - m), rr = M.er[i] + R0;
+        if (d2 < rr) { if (M.ed[i] > hit) hit = M.ed[i]; } else if (d2 < rr + 40) soft += M.ed[i] * .04;
       }
+      if (hit > 0 && t >= invUntil) { cost += hit * hk; invUntil = t + .5; }
+      cost += soft;
     }
-    s2 -= Math.min(25, cone * .6 * safety);
-    for (const b of bul) {
-      let worst = 1e9;
-      for (const t of TS) { const q = at(t), d = Math.hypot(b.x + b.vx * t - q[0], b.y + b.vy * t - q[1]); if (d < worst) worst = d; }
-      if (worst < b.r + p.r + 14) { const c = 4 * b.dmg + 15; s2 -= c; danger += c; } else if (worst < b.r + p.r + 55) s2 -= 8;
-    }
+    let dens = 0; for (let i = 0; i < n; i++) { const dx = px - M.sx[i]; if (dx < 220 && dx > -220) { const dy = py - M.sy[i]; if (dx * dx + dy * dy < 48400) dens += M.ed[i] / 7; } }
+    return { cost, dens };
+  };
+  const hazard = (at, t0) => {
+    let cost = 0;
+    for (const b of bul) { for (let t = DT; t <= H; t += DT) { if (t < t0) continue; const q = at(t); if (Math.hypot(b.x + b.vx * t - q[0], b.y + b.vy * t - q[1]) < b.r + R0 + 8) { cost += b.dmg; break; } } }
     for (const bm of G.beams) {
-      if (bm.owner.dead) continue; const bd = bm.owner.dmg * .9;
-      for (const t of TS) {
-        const bt = bm.t + t; if (bt > bm.warn + bm.dur) continue;
-        const ang = bm.a + bm.rot * Math.max(0, bt - Math.max(bm.t, bm.warn)), dx = Math.cos(ang), dy = Math.sin(ang), q = at(t), px = q[0] - bm.owner.x, py = q[1] - bm.owner.y, proj = px * dx + py * dy, perp = Math.abs(px * dy - py * dx);
-        if (proj > -40 && perp < 50 + p.r) { const c = (bt > bm.warn ? 6 : 3.5) * bd; s2 -= c; danger += c; break; }
+      if (bm.owner.dead) continue; let act = 0, warn = 0;
+      for (let t = DT; t <= H; t += DT) {
+        if (t < t0) continue; const bt = bm.t + t; if (bt > bm.warn + bm.dur) continue;
+        const ang = bm.a + bm.rot * Math.max(0, bt - Math.max(bm.t, bm.warn)), dx = Math.cos(ang), dy = Math.sin(ang), q = at(t), px = q[0] - bm.owner.x, py = q[1] - bm.owner.y;
+        if (px * dx + py * dy > -40 && Math.abs(px * dy - py * dx) < 48 + p.r) { if (bt > bm.warn) act++; else warn++; }
       }
+      cost += bm.owner.dmg * .9 * (act * DT / .5) + (warn ? bm.owner.dmg * .5 : 0);
     }
-    for (const m of G.meteors) if (!m.done && Math.hypot(cx - m.x, cy - m.y) < m.r + 35 && m.t > m.warn - .85) { const c = 4 * (12 + 8 * mdm); s2 -= c; danger += c; }
-    for (const e of en) {
-      if (e.cs === 'wind' && e.cdir !== undefined) { const dx = Math.cos(e.cdir), dy = Math.sin(e.cdir), px = cx - e.x, py = cy - e.y, proj = px * dx + py * dy, perp = Math.abs(px * dy - py * dx); if (proj > 0 && proj < 700 && perp < 42) { const c = 3 * e.dmg; s2 -= c; danger += c * .7; } }
-      if (e.type === 'sniper' && e.tel > 0) { const dx = Math.cos(e.aim), dy = Math.sin(e.aim), px = cx - e.x, py = cy - e.y, proj = px * dx + py * dy, perp = Math.abs(px * dy - py * dx); if (proj > 0 && perp < 34) { const c = 3.5 * e.dmg; s2 -= c; danger += c * .7; } }
-    }
-    if (G.zone) { const over = Math.hypot(cx2 - G.zone.x, cy2 - G.zone.y) - (G.zone.r - 60); if (over > 0) s2 -= over * .6; }
-    if (tgt) { const d0 = Math.hypot(tgt.x - p.x, tgt.y - p.y), d1 = Math.hypot(tgt.x - cx, tgt.y - cy); s2 += (d0 - d1) / (spd * T) * Math.min(24, 6 + tw * 4); }
-    else if (!stay) s2 += Math.cos(a - A.wander);
-    if (stay) s2 -= 1.5; else s2 += 2.5 * Math.cos(a - A.ang);
-    s2 += (Math.random() - .5) * sk.noise * 8;
-    if (s2 > best) { best = s2; bestA = a; bestDanger = danger; stayBest = stay; }
-    if (!stay && s2 > bestMove) { bestMove = s2; bestMoveA = a; }
+    for (const m of G.meteors) { if (m.done) continue; const ti = m.warn - m.t; if (ti > H + .1 || ti < t0 - .05) continue; const q = at(Math.max(DT, Math.min(H, ti))); if (Math.hypot(q[0] - m.x, q[1] - m.y) < m.r + 30) cost += 12 + 8 * mdm; }
+    for (const ln of lines) { if (ln.t > H || ln.t < t0) continue; const q = at(Math.max(DT, ln.t)), px = q[0] - ln.x, py = q[1] - ln.y, proj = px * ln.dx + py * ln.dy; if (proj > 0 && proj < ln.len && Math.abs(px * ln.dy - py * ln.dx) < ln.w) cost += ln.dm; }
+    if (G.zone) { let out = 0; for (let t = DT; t <= H; t += DT) { const q = at(t); if (Math.hypot(q[0] - G.zone.x, q[1] - G.zone.y) > G.zone.r - 50) out++; } cost += (8 + 6 * mdm) * (out * DT / .5) * .8; }
+    return cost;
+  };
+  const evalC = (vx, vy, dash, stay) => {
+    const sim = simulate(vx, vy, dash);
+    const at = dash ? (t => { const d = 850 * Math.min(t, .17) + spd * Math.max(0, t - .17); return [p.x + vx * d, p.y + vy * d]; }) : (t => [p.x + vx * spd * t, p.y + vy * spd * t]);
+    const hz = hazard(at, dash ? .3 : 0), ang = Math.atan2(vy, vx);
+    let reward = 0;
+    if (tgt) { const d0 = Math.hypot(tgt.x - p.x, tgt.y - p.y), q = at(H), d1 = Math.hypot(tgt.x - q[0], tgt.y - q[1]); reward = (d0 - d1) / (spd * H) * Math.min(24, 6 + tw * 4) * AI_TUNE.loot; }
+    else if (!stay) reward = Math.cos(ang - A.wander) * 1.2;
+    const total = -(sim.cost + hz) * K - sim.dens * AI_TUNE.dens * hk + reward + (stay ? -1.2 : 2 * Math.cos(ang - A.ang)) + (Math.random() - .5) * sk.noise * 10 - (dash ? 4 : 0);
+    return { total, cost: sim.cost + hz };
+  };
+  let bw = null, bwA = A.ang, bwStay = false, bd = null, bdA = A.ang;
+  for (let k = 0; k <= N; k++) {
+    const stay = k === N, a = stay ? A.ang : k / N * 6.2832, r = evalC(stay ? 0 : Math.cos(a), stay ? 0 : Math.sin(a), false, stay);
+    if (!bw || r.total > bw.total) { bw = r; bwA = a; bwStay = stay; }
   }
-  if (stayBest) { A.dir = { x: 0, y: 0 }; } else { A.ang = bestA; A.dir = { x: Math.cos(bestA), y: Math.sin(bestA) }; }
-  A.dashDir = { x: Math.cos(bestMoveA), y: Math.sin(bestMoveA) };
-  A.goal = bestDanger > 80 ? 'Dodging!' : stayBest ? 'Holding position' : (tgt ? tgt.label : 'Kiting the swarm');
-  let near = 0, nd = 1e9;
-  for (const e of en) { if (e.dmg <= 0) continue; const d = Math.hypot(e.x - p.x, e.y - p.y) - e.r - p.r; if (d < nd) nd = d; if (d < 38) near++; }
-  if (G.dashT <= 0 && (bestDanger > AI_TUNE.dashAt || near >= 3 || (hpF < .5 && nd < 30)) && Math.random() < sk.dash) { A.wantDash = true; A.goal = 'Dashing out!'; }
+  if (G.dashT <= 0) for (let k = 0; k < N; k++) { const a = k / N * 6.2832, r = evalC(Math.cos(a), Math.sin(a), true, false); if (!bd || r.total > bd.total) { bd = r; bdA = a; } }
+  if (bwStay) A.dir = { x: 0, y: 0 }; else { A.ang = bwA; A.dir = { x: Math.cos(bwA), y: Math.sin(bwA) }; }
+  A.dashDir = { x: Math.cos(bdA), y: Math.sin(bdA) };
+  const risk = bw.cost;
+  A.goal = risk > 12 ? 'Dodging!' : bwStay ? 'Holding position' : (tgt ? tgt.label : 'Kiting the swarm');
+  if (bd && risk >= AI_TUNE.dashRisk && bd.total > bw.total + AI_TUNE.dashMargin && Math.random() < sk.dash) { A.wantDash = true; A.goal = 'Dashing out!'; }
 }
 function aiChoose() {
   let bi = 0, bs = -1e9;
